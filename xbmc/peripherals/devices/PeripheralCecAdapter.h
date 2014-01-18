@@ -72,6 +72,7 @@ namespace PERIPHERALS
   {
     int         iButton;
     unsigned int iDuration;
+    unsigned int iTimestamp;
   } CecButtonPress;
 
   typedef enum

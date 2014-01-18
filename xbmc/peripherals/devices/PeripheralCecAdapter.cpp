@@ -56,6 +56,9 @@ using namespace std;
 #define LOCALISED_ID_TV_AVR       36039
 #define LOCALISED_ID_NONE         231
 
+/* time in milliseconds to suppress a double key press */
+#define CEC_SUPPRESS_DOUBLE_KEY   250
+
 /* time in seconds to suppress source activation after receiving OnStop */
 #define CEC_SUPPRESS_ACTIVATE_SOURCE_AFTER_ON_STOP 2
 
@@ -765,16 +768,20 @@ void CPeripheralCecAdapter::GetNextKey(void)
 
 void CPeripheralCecAdapter::PushCecKeypress(const CecButtonPress &key)
 {
-  CLog::Log(LOGDEBUG, "%s - received key %2x duration %d", __FUNCTION__, key.iButton, key.iDuration);
+  CLog::Log(LOGDEBUG, "%s - received key %2x duration %d timestamp %i", __FUNCTION__, key.iButton, key.iDuration, key.iTimestamp);
 
   CSingleLock lock(m_critSection);
+  if (key.iDuration == 0 && key.iTimestamp - m_currentButton.iTimestamp < CEC_SUPPRESS_DOUBLE_KEY )
+    if (m_currentButton.iButton == key.iButton && m_currentButton.iDuration == 0)
+      // ignore this one, since it's already been handled by xbmc (workaround for buggy tv)
+      return;
+
   if (key.iDuration > 0)
   {
     if (m_currentButton.iButton == key.iButton && m_currentButton.iDuration == 0)
     {
-      // update the duration
-      if (m_bHasButton)
-        m_currentButton.iDuration = key.iDuration;
+      // update the duration 
+      m_currentButton.iDuration = key.iDuration;
       // ignore this one, since it's already been handled by xbmc
       return;
     }
@@ -802,6 +809,7 @@ void CPeripheralCecAdapter::PushCecKeypress(const cec_keypress &key)
 {
   CecButtonPress xbmcKey;
   xbmcKey.iDuration = key.duration;
+  xbmcKey.iTimestamp = XbmcThreads::SystemClockMillis();
 
   switch (key.keycode)
   {
